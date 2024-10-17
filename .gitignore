@@ -8,5 +8,5 @@ wheels/
 
 # venv
 .venv
-./.env
+.env
 jax_cache/
