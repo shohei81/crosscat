@@ -378,8 +378,8 @@ wheels = [
 
 [[package]]
 name = "genjax"
-version = "0.7.0.post29.dev0+0ac904da"
-source = { git = "https://github.com/probcomp/genjax.git#0ac904dad887a3ac74c9342811fc571257e0e2d6" }
+version = "0.8.0"
+source = { git = "ssh://git@github.com/probcomp/genjax.git#d39957cd9993b5e9f02baaa7e8547744e266ff0c" }
 dependencies = [
     { name = "beartype" },
     { name = "deprecated" },
@@ -414,7 +414,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "altair", specifier = ">=5.5.0" },
-    { name = "genjax", git = "https://github.com/probcomp/genjax.git" },
+    { name = "genjax", git = "ssh://git@github.com/probcomp/genjax.git" },
     { name = "huggingface-hub", specifier = ">=0.26.2" },
     { name = "ipdb", specifier = ">=0.13.13" },
     { name = "ipykernel", specifier = ">=6.29.5" },
