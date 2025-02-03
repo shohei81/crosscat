@@ -5,17 +5,18 @@ description = "dpmm in genjax"
 readme = "README.md"
 requires-python = ">=3.12.5"
 dependencies = [
-    "altair>=5.5.0",
-    "genjax>=0.8.0",
-    "huggingface-hub>=0.26.2",
-    "ipdb>=0.13.13",
-    "ipykernel>=6.29.5",
+    "genjax",
     "jax-metal>=0.1.1",
+    "jaxtyping>=0.2.36",
     "keyring>=25.5.0",
     "keyrings-google-artifactregistry-auth>=1.1.2",
     "matplotlib>=3.9.2",
-    "polars>=1.15.0",
-    "pyarrow>=18.1.0",
-    "pygments>=2.18.0",
+    "multimethod>=2.0",
     "pytest>=8.3.3",
+]
+
+[dependency-groups]
+dev = [
+    "ipdb>=0.13.13",
+    "ipykernel>=6.29.5",
 ]
