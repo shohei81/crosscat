@@ -12,3 +12,8 @@ wheels/
 jax_cache/
 
 .DS_Store
+
+# builds
+site/
+.ruff_cache
+
