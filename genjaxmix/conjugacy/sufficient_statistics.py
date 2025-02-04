@@ -11,24 +11,24 @@ def segment_sufficient_statistic(prior: dist.Beta, likelihood: dist.Bernoulli):
 
 
 @dispatch
-def segment_sufficient_statistic(prior: dist.Gamma, likelihood: dist.Poisson):
+def segment_sufficient_statistic(prior: dist.Gamma, likelihood: dist.Poisson):  # noqa: F811
     return _sss_gamma_poisson
 
 
 @dispatch
-def segment_sufficient_statistic(prior: dist.Dirichlet, likelihood: dist.Categorical):
+def segment_sufficient_statistic(prior: dist.Dirichlet, likelihood: dist.Categorical):  # noqa: F811
     return _sss_dirichlet_categorical
 
 
 @dispatch
-def segment_sufficient_statistic(
+def segment_sufficient_statistic(  # noqa: F811
     prior: dist.NormalInverseGamma, likelihood: dist.Normal
 ):
     return _sss_nig_normal
 
 
 @dispatch
-def segment_sufficient_statistic(prior: dist.Normal, likelihood: dist.Normal):
+def segment_sufficient_statistic(prior: dist.Normal, likelihood: dist.Normal):  # noqa: F811
     """
     Normal with known variance
     """
@@ -36,7 +36,7 @@ def segment_sufficient_statistic(prior: dist.Normal, likelihood: dist.Normal):
 
 
 @dispatch
-def segment_sufficient_statistic(prior: dist.InverseGamma, likelihood: dist.Normal):
+def segment_sufficient_statistic(prior: dist.InverseGamma, likelihood: dist.Normal):  # noqa: F811
     """
     Normal with known mean
     """
@@ -44,7 +44,7 @@ def segment_sufficient_statistic(prior: dist.InverseGamma, likelihood: dist.Norm
 
 
 @dispatch
-def segment_sufficient_statistic(prior: dist.Gamma, likelihood: dist.Normal):
+def segment_sufficient_statistic(prior: dist.Gamma, likelihood: dist.Normal):  # noqa: F811
     return _sss_gamma_normal
 
 
@@ -89,9 +89,9 @@ def _sss_inverse_gamma_normal(parameters, x, assignments):
 
 
 def _sss_nig_normal(
-    parameters: Float[Array, "kc"],
-    x: Float[Array, "nl"],
-    assignments: Float[Array, "n"],
+    parameters: Float[Array, "kc"],  # noqa: F821
+    x: Float[Array, "nl"],  # noqa: F821
+    assignments: Float[Array, "n"],  # noqa: F821
 ):
     v_0, mu_0, a_0, b_0 = parameters
     K = v_0.shape[0]
@@ -117,7 +117,9 @@ def _sss_dirichlet_categorical(parameters, x, assignments):
 
 
 def _sss_beta_bernoulli(
-    parameters: Float[Array, "kc"], x: Float[Array, "nl"], assignments
+    parameters: Float[Array, "kc"],  # noqa: F821
+    x: Float[Array, "nl"],  # noqa: F821
+    assignments,  # noqa: F821
 ):
     alpha, beta = parameters
     K = alpha.shape[0]

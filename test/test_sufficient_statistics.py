@@ -1,6 +1,5 @@
 import jax
 import jax.numpy as jnp
-import pytest
 
 import genjaxmix.conjugacy.sufficient_statistics as ss
 
