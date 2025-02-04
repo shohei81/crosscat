@@ -2,7 +2,7 @@ from plum import dispatch
 import jax.numpy as jnp
 import jax
 import genjaxmix.distributions as dist
-from jaxtyping import Array, Float
+from jaxtyping import Array, Float, Int
 
 
 @dispatch
@@ -49,7 +49,11 @@ def segment_sufficient_statistic(prior: dist.Gamma, likelihood: dist.Normal):  #
 
 
 ############
-def _sss_gamma_normal(parameters, x, assignments):
+def _sss_gamma_normal(
+    parameters: Float[Array, "kc"],  # noqa: F821
+    x: Float[Array, "nl"],  # noqa: F821
+    assignments: Int[Array, "n"],  # noqa: F821
+):
     alpha, beta, mu_likelihood = parameters
     counts = jnp.bincount(assignments, length=alpha.shape[0])
     sum_squared_diff = jax.ops.segment_sum(
@@ -62,7 +66,11 @@ def _sss_gamma_normal(parameters, x, assignments):
     return (alpha_new, beta_new)
 
 
-def _sss_normal_normal(parameters, x, assignments):
+def _sss_normal_normal(
+    parameters: Float[Array, "kc"],  # noqa: F821
+    x: Float[Array, "nl"],  # noqa: F821
+    assignments: Int[Array, "n"],  # noqa: F821
+):
     mu_0, sig_0, sig_sq_likelihood = parameters
     K = mu_0.shape[0]
     counts = jnp.bincount(assignments, length=K)
@@ -75,7 +83,11 @@ def _sss_normal_normal(parameters, x, assignments):
     return (mu_new, sig_new)
 
 
-def _sss_inverse_gamma_normal(parameters, x, assignments):
+def _sss_inverse_gamma_normal(
+    parameters: Float[Array, "kc"],  # noqa: F821
+    x: Float[Array, "nl"],  # noqa: F821
+    assignments: Float[Array, "n"],  # noqa: F821
+):
     alpha, beta, mu_likelihood = parameters
     counts = jnp.bincount(assignments, length=alpha.shape[0])
     sum_squared_diff = jax.ops.segment_sum(
@@ -106,7 +118,11 @@ def _sss_nig_normal(
     return (m, 1 / v_n_inv, a, b)
 
 
-def _sss_dirichlet_categorical(parameters, x, assignments):
+def _sss_dirichlet_categorical(
+    parameters: Float[Array, "kc"],  # noqa: F821
+    x: Float[Array, "nl"],  # noqa: F821
+    assignments: Float[Array, "n"],  # noqa: F821
+):
     (alpha,) = parameters
     K = alpha.shape[0]
     L = alpha.shape[1]
@@ -129,7 +145,11 @@ def _sss_beta_bernoulli(
     return (alpha_new, beta_new)
 
 
-def _sss_gamma_poisson(parameters, x, assignments):
+def _sss_gamma_poisson(
+    parameters: Float[Array, "kc"],  # noqa: F821
+    x: Float[Array, "nl"],  # noqa: F821
+    assignments: Int[Array, "n"],  # noqa: F821
+):
     shape, scale = parameters
     K = shape.shape[0]
     x_sum = jax.ops.segment_sum(x, assignments, K)
