@@ -8,7 +8,13 @@ dependencies = [
     "genjax",
     "jaxtyping>=0.2.36",
     "multimethod>=2.0",
+    "plum-dispatch>=2.5.7",
     "pytest>=8.3.3",
+]
+
+[project.optional-dependencies]
+m1 = [
+    "jax-metal>=0.1.1",
 ]
 
 [dependency-groups]
@@ -16,6 +22,7 @@ dev = [
     "ipdb>=0.13.13",
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.0",
+    "pytest>=8.3.4",
     "ruff>=0.9.4",
 ]
 docs = [
