@@ -6,11 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12.5"
 dependencies = [
     "genjax",
-    "jax-metal>=0.1.1",
     "jaxtyping>=0.2.36",
-    "keyring>=25.5.0",
-    "keyrings-google-artifactregistry-auth>=1.1.2",
-    "matplotlib>=3.9.2",
     "multimethod>=2.0",
     "pytest>=8.3.3",
 ]
@@ -19,4 +15,12 @@ dependencies = [
 dev = [
     "ipdb>=0.13.13",
     "ipykernel>=6.29.5",
+    "matplotlib>=3.10.0",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocstrings-python>=1.14.2",
+    "mkdocstrings>=0.28.0",
+    "mkdocs-jupyter>=0.25.1",
+    "jupytext>=1.16.6",
 ]
