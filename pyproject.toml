@@ -16,6 +16,7 @@ dev = [
     "ipdb>=0.13.13",
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.0",
+    "ruff>=0.9.4",
 ]
 docs = [
     "mkdocs>=1.6.1",
