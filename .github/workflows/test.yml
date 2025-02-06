@@ -36,19 +36,19 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: "0.4.15"
+          version: "latest"
           enable-cache: true
           cache-dependency-glob: |
             requirements**.txt
             pyproject.toml
-      - name: Install Dependencies
-        run: uv sync
+      - run: uv sync
+      - run: uv sync --group dev
       - run: mkdir coverage
       - name: Test
-        run: uv run pytest
-      # - name: Store coverage files
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: coverage-${{ matrix.python-version }}-${{ matrix.pydantic-version }}
-      #     path: coverage
-      #     include-hidden-files: true
+        run: uv run pytest test --doctest-modules --junitxml=junit/test-results.xml --cov=genjaxmix --cov-report=xml:coverage/coverage.xml --cov-report=html:coverage/htmlcov
+      - name: Store coverage files
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+          include-hidden-files: true
