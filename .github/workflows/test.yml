@@ -52,3 +52,10 @@ jobs:
           name: coverage
           path: coverage
           include-hidden-files: true
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          # fail_ci_if_error: false
+          # disable_search: true
+          # # token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/coverage.xml
