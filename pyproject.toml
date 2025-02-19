@@ -18,6 +18,7 @@ m1 = [
 
 [dependency-groups]
 dev = [
+    "coverage>=7.6.12",
     "ipdb>=0.13.13",
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.0",
