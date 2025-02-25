@@ -4,6 +4,19 @@ import jax.numpy as jnp
 import jax
 
 
+def get_segmented_posterior_sampler(prior_type, likelihood_type):
+    signatures = {
+        (core.Normal, core.Normal): _sps_normal_normal,
+        (core.Gamma, core.Normal): _sps_gamma_normal,
+        (core.Dirichlet, core.Categorical): _sps_dirichlet_categorical,
+        (core.NormalInverseGamma, core.Normal): _sps_nig_normal,
+        (core.Beta, core.Bernoulli): _sps_beta_bernoulli,
+        (core.InverseGamma, core.Normal): _sps_inverse_gamma_normal,
+        (core.Gamma, core.Poisson): _sps_gamma_poisson,
+    }
+    return signatures[(prior_type, likelihood_type)]
+
+
 @dispatch
 def segmented_posterior_sampler(prior: core.Normal, likelihood: core.Normal):  # noqa: F811
     return _sps_normal_normal
@@ -42,21 +55,20 @@ def segmented_posterior_sampler(prior: core.InverseGamma, likelihood: core.Norma
 
 
 @dispatch
-def segmented_posterior_sampler(prior: core.Gamma, likelihood: core.Poisson): # noqa: F811
+def segmented_posterior_sampler(prior: core.Gamma, likelihood: core.Poisson):  # noqa: F811
     return _sps_gamma_poisson
 
 
 #######
 def _sps_normal_normal(
     key,
-    hyperparameters,  # noqa: F722
-    x,  # noqa: F722
+    conditionals,  # noqa: F722
     assignments,  # noqa: F722
 ):
-    mu_0, sig_sq_0, sig_sq = hyperparameters
+    mu_0, sig_sq_0, sig_sq, observations = conditionals
 
     counts = jnp.bincount(assignments, length=mu_0.shape[0])
-    x_sum = jax.ops.segment_sum(x, assignments, mu_0.shape[0])
+    x_sum = jax.ops.segment_sum(observations, assignments, mu_0.shape[0])
     sig_sq_post = 1 / (1 / sig_sq_0 + counts[:, None] / sig_sq)
     mu_post = sig_sq_post * (mu_0 / sig_sq_0 + x_sum / sig_sq)
 
@@ -180,3 +192,22 @@ def _sps_gamma_poisson(
     mu_new = jax.random.gamma(key, shape_new)
     mu_new *= scale_new
     return mu_new
+
+
+def get_posterior_sampler(prior_type, likelihood_type):
+    signatures = {
+        (core.Normal, core.Normal): _posterior_normal_normal,
+    }
+    return signatures[(prior_type, likelihood_type)]
+
+
+def _posterior_normal_normal(
+    key,
+    conditionals,  # noqa: F722
+):
+    mu_0, sig_sq_0, sig_sq, x = conditionals
+    sig_sq_post = 1 / (1 / sig_sq_0 + 1 / sig_sq)
+    mu_post = sig_sq_post * (mu_0 / sig_sq_0 + x / sig_sq)
+
+    noise = jax.random.normal(key, shape=mu_0.shape)
+    return noise * jnp.sqrt(sig_sq_post) + mu_post
