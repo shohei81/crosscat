@@ -36,6 +36,9 @@ class CrossCatModel(Model):
         self.column_types = column_types
         self.column_constraints = column_constraints or []
         
+        # Convert constraints to set of tuples for O(1) lookup
+        self._constraint_set = set(self.column_constraints) if self.column_constraints else set()
+        
         # Column clustering via Chinese Restaurant Process
         self.column_clustering = ChineseRestaurantProcess(
             concentration=jnp.array([[crp_concentration]]),  # 2D format
@@ -203,7 +206,7 @@ class CrossCatModel(Model):
         Returns:
             True if all constraints are satisfied, False otherwise
         """
-        for col_i, col_j in self.column_constraints:
+        for col_i, col_j in self._constraint_set:
             if column_assignments[col_i] == column_assignments[col_j]:
                 return False
         return True
@@ -228,7 +231,7 @@ class CrossCatModel(Model):
         
         # Find constrained columns (columns that cannot be in same view)
         constrained_columns = []
-        for col_i, col_j in self.column_constraints:
+        for col_i, col_j in self._constraint_set:
             if col_i == column_to_reassign:
                 constrained_columns.append(col_j)
             elif col_j == column_to_reassign:
@@ -325,7 +328,7 @@ class CrossCatModel(Model):
             can_merge = True
             for col_a in cols_in_a:
                 for col_b in cols_in_b:
-                    if (col_a, col_b) in self.column_constraints or (col_b, col_a) in self.column_constraints:
+                    if (col_a, col_b) in self._constraint_set or (col_b, col_a) in self._constraint_set:
                         can_merge = False
                         break
                 if not can_merge:
