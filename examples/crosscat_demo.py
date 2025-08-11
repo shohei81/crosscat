@@ -11,30 +11,49 @@ import matplotlib.pyplot as plt
 from genjaxmix.model.crosscat import CrossCatModel, CrossCatInference
 
 
-def generate_synthetic_data(key: jax.random.PRNGKey, n_rows: int = 100) -> dict:
+def generate_synthetic_data(key: jax.random.PRNGKey, n_rows: int = 100, 
+                           constrained_generation: bool = False) -> dict:
     """Generate synthetic mixed-type tabular data for demonstration"""
     
-    key1, key2, key3, key4 = jax.random.split(key, 4)
+    key1, key2, key3, key4, key5 = jax.random.split(key, 5)
     
-    # Create synthetic data with known structure
-    # Column 0: Height (continuous) - two clusters (short/tall people)
-    height_cluster = jax.random.bernoulli(key1, 0.6, (n_rows,))
-    height = jnp.where(
-        height_cluster,
-        jax.random.normal(key1, (n_rows,)) * 5 + 170,  # Tall cluster
-        jax.random.normal(key2, (n_rows,)) * 4 + 160   # Short cluster  
-    )
-    
-    # Column 1: Gender (categorical) - correlated with height
-    gender_tall = jax.random.categorical(key3, jnp.log(jnp.array([0.3, 0.7])), shape=(n_rows,))  # M/F for tall
-    gender_short = jax.random.categorical(key4, jnp.log(jnp.array([0.7, 0.3])), shape=(n_rows,))  # M/F for short
-    gender = jnp.where(height > 165, gender_tall, gender_short)
-    
-    # Column 2: Weight (continuous) - correlated with height
-    weight = height * 0.8 + jax.random.normal(key2, (n_rows,)) * 5 - 50
-    
-    # Column 3: Favorite Color (categorical) - independent
-    color = jax.random.categorical(key4, jnp.log(jnp.ones(4) / 4), shape=(n_rows,))
+    if constrained_generation:
+        # Generate data where column 0 and 2 are forced to be independent
+        # (simulating constraint that height and weight can't be in same view)
+        
+        # Column 0: Height (continuous) - independent clusters
+        height = jax.random.normal(key1, (n_rows,)) * 10 + 170
+        
+        # Column 1: Gender (categorical) - correlated with height
+        height_norm = (height - jnp.mean(height)) / jnp.std(height)
+        gender_prob = 1 / (1 + jnp.exp(-height_norm))  # Sigmoid
+        gender = jax.random.bernoulli(key2, gender_prob, (n_rows,)).astype(jnp.int32)
+        
+        # Column 2: Weight (continuous) - INDEPENDENT from height due to constraint
+        weight = jax.random.normal(key3, (n_rows,)) * 15 + 70
+        
+        # Column 3: Favorite Color (categorical) - independent  
+        color = jax.random.categorical(key4, jnp.log(jnp.ones(4) / 4), shape=(n_rows,))
+    else:
+        # Original correlated data generation
+        # Column 0: Height (continuous) - two clusters (short/tall people)
+        height_cluster = jax.random.bernoulli(key1, 0.6, (n_rows,))
+        height = jnp.where(
+            height_cluster,
+            jax.random.normal(key1, (n_rows,)) * 5 + 170,  # Tall cluster
+            jax.random.normal(key2, (n_rows,)) * 4 + 160   # Short cluster  
+        )
+        
+        # Column 1: Gender (categorical) - correlated with height
+        gender_tall = jax.random.categorical(key3, jnp.log(jnp.array([0.3, 0.7])), shape=(n_rows,))  # M/F for tall
+        gender_short = jax.random.categorical(key4, jnp.log(jnp.array([0.7, 0.3])), shape=(n_rows,))  # M/F for short
+        gender = jnp.where(height > 165, gender_tall, gender_short)
+        
+        # Column 2: Weight (continuous) - correlated with height
+        weight = height * 0.8 + jax.random.normal(key2, (n_rows,)) * 5 - 50
+        
+        # Column 3: Favorite Color (categorical) - independent
+        color = jax.random.categorical(key4, jnp.log(jnp.ones(4) / 4), shape=(n_rows,))
     
     return {
         'column_0': height,    # Height (continuous)
@@ -44,7 +63,7 @@ def generate_synthetic_data(key: jax.random.PRNGKey, n_rows: int = 100) -> dict:
     }
 
 
-def run_crosscat_analysis():
+def run_crosscat_analysis(use_constraints: bool = False):
     """Run CrossCat analysis on synthetic data"""
     
     print("🔬 CrossCat Demo: Mixed Tabular Data Analysis")
@@ -59,19 +78,25 @@ def run_crosscat_analysis():
     # Generate data
     print("📊 Generating synthetic tabular data...")
     data_key, model_key = jax.random.split(key)
-    data = generate_synthetic_data(data_key, n_rows)
+    data = generate_synthetic_data(data_key, n_rows, constrained_generation=use_constraints)
     
     print(f"   - Rows: {n_rows}")
     print(f"   - Columns: {n_columns}")
     print(f"   - Types: {column_types}")
     
+    # Define constraints if requested
+    column_constraints = [(0, 2)] if use_constraints else None  # Height and Weight cannot be in same view
+    
     # Create CrossCat model
     print("\n🏗️  Building CrossCat model...")
+    if use_constraints:
+        print(f"   - Column constraints: {column_constraints}")
     model = CrossCatModel(
         n_rows=n_rows,
         n_columns=n_columns,
         column_types=column_types,
-        crp_concentration=1.0
+        crp_concentration=1.0,
+        column_constraints=column_constraints
     )
     
     # Initialize model parameters
@@ -88,6 +113,16 @@ def run_crosscat_analysis():
     print(f"\n🔗 Initial column clustering:")
     print(f"   - Column assignments: {column_clusters}")
     print(f"   - Number of column clusters: {n_column_clusters}")
+    
+    # Test constraint-aware column clustering if constraints are specified
+    if use_constraints:
+        print(f"\n🚫 Testing constraint-aware column clustering:")
+        constraint_key, _ = jax.random.split(model_key)
+        constrained_clusters = model.sample_column_clustering_with_constraints(constraint_key)
+        constraint_valid = model._validate_column_constraints(constrained_clusters)
+        print(f"   - Constrained assignments: {constrained_clusters}")
+        print(f"   - Constraints satisfied: {constraint_valid}")
+        print(f"   - Column 0 and 2 in same view: {constrained_clusters[0] == constrained_clusters[2]}")
     
     # Test hyperparameter estimation
     print(f"\n🧮 Hyperparameter estimation:")
@@ -164,12 +199,40 @@ def visualize_data(data: dict, save_path: str = None):
         plt.show()
 
 
-if __name__ == "__main__":
-    # Run the demo
-    model, data = run_crosscat_analysis()
+def run_constraint_comparison_demo():
+    """Run comparison between constrained and unconstrained models"""
+    print("🆚 Constraint Comparison Demo")
+    print("=" * 60)
     
-    # Optional: Create visualization if matplotlib is available
-    try:
-        visualize_data(data)
-    except ImportError:
-        print("📊 Install matplotlib for data visualization")
+    print("\n1️⃣  Running UNCONSTRAINED CrossCat analysis...")
+    model_unconstrained, data_unconstrained = run_crosscat_analysis(use_constraints=False)
+    
+    print("\n" + "="*60)
+    print("\n2️⃣  Running CONSTRAINED CrossCat analysis...")
+    model_constrained, data_constrained = run_crosscat_analysis(use_constraints=True)
+    
+    print("\n" + "="*60)
+    print("\n📊 Summary Comparison:")
+    print("   - Unconstrained model: Normal height-weight correlation")
+    print("   - Constrained model: Height and weight forced independent")
+    print("   - Constraint ensures columns 0 and 2 never appear in same view")
+    
+    return (model_unconstrained, data_unconstrained), (model_constrained, data_constrained)
+
+
+if __name__ == "__main__":
+    import sys
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "--compare":
+        # Run comparison demo
+        results = run_constraint_comparison_demo()
+    else:
+        # Run single demo (default: no constraints)
+        use_constraints = len(sys.argv) > 1 and sys.argv[1] == "--constrained"
+        model, data = run_crosscat_analysis(use_constraints=use_constraints)
+        
+        # Optional: Create visualization if matplotlib is available
+        try:
+            visualize_data(data)
+        except ImportError:
+            print("📊 Install matplotlib for data visualization")

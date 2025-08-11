@@ -36,7 +36,7 @@ class Model(ABC):
     def __len__(self):
         return len(self.nodes)
 
-    def initalize_parameters(self, key):
+    def initialize_parameters(self, key):
         environment = dict()
 
         keys = jax.random.split(key, len(self.nodes))

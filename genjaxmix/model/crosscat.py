@@ -17,7 +17,8 @@ class CrossCatModel(Model):
     
     def __init__(self, n_rows: int, n_columns: int, 
                  column_types: List[str], 
-                 crp_concentration: float = 1.0):
+                 crp_concentration: float = 1.0,
+                 column_constraints: List[Tuple[int, int]] = None):
         """
         Initialize CrossCat model
         
@@ -26,12 +27,14 @@ class CrossCatModel(Model):
             n_columns: Number of columns in the data  
             column_types: List of column types ('continuous' or 'categorical')
             crp_concentration: Concentration parameter for CRP
+            column_constraints: List of column pairs (i, j) that cannot be in same view
         """
         super().__init__()
         
         self.n_rows = n_rows
         self.n_columns = n_columns
         self.column_types = column_types
+        self.column_constraints = column_constraints or []
         
         # Column clustering via Chinese Restaurant Process
         self.column_clustering = ChineseRestaurantProcess(
@@ -189,6 +192,150 @@ class CrossCatModel(Model):
                 }
         
         return updated_hyperparams
+    
+    def _validate_column_constraints(self, column_assignments: jnp.ndarray) -> bool:
+        """
+        Validate that column assignments satisfy the constraints
+        
+        Args:
+            column_assignments: Array of column cluster assignments
+            
+        Returns:
+            True if all constraints are satisfied, False otherwise
+        """
+        for col_i, col_j in self.column_constraints:
+            if column_assignments[col_i] == column_assignments[col_j]:
+                return False
+        return True
+    
+    def _generate_valid_column_assignment(self, key: jax.random.PRNGKey, 
+                                        current_assignments: jnp.ndarray,
+                                        column_to_reassign: int) -> int:
+        """
+        Generate a valid cluster assignment for a column that satisfies constraints
+        
+        Args:
+            key: Random key
+            current_assignments: Current column cluster assignments
+            column_to_reassign: Index of column to reassign
+            
+        Returns:
+            Valid cluster assignment
+        """
+        # Get existing clusters
+        existing_clusters = jnp.unique(current_assignments)
+        max_cluster = jnp.max(existing_clusters) if len(existing_clusters) > 0 else -1
+        
+        # Find constrained columns (columns that cannot be in same view)
+        constrained_columns = []
+        for col_i, col_j in self.column_constraints:
+            if col_i == column_to_reassign:
+                constrained_columns.append(col_j)
+            elif col_j == column_to_reassign:
+                constrained_columns.append(col_i)
+        
+        # Get forbidden clusters (clusters containing constrained columns)
+        forbidden_clusters = set()
+        for constrained_col in constrained_columns:
+            if constrained_col < len(current_assignments):
+                forbidden_clusters.add(current_assignments[constrained_col])
+        
+        # Find valid clusters (existing clusters not in forbidden set)
+        valid_existing_clusters = []
+        for cluster in existing_clusters:
+            if cluster not in forbidden_clusters:
+                valid_existing_clusters.append(cluster)
+        
+        # Always allow creating a new cluster
+        valid_clusters = valid_existing_clusters + [max_cluster + 1]
+        
+        # Sample uniformly from valid clusters
+        n_valid = len(valid_clusters)
+        if n_valid == 0:
+            # Fallback: create new cluster
+            return max_cluster + 1
+        
+        cluster_idx = jax.random.randint(key, (), 0, n_valid)
+        return valid_clusters[cluster_idx]
+    
+    def sample_column_clustering_with_constraints(self, key: jax.random.PRNGKey) -> jnp.ndarray:
+        """
+        Sample column clustering that satisfies constraints using rejection sampling
+        
+        Args:
+            key: Random key
+            
+        Returns:
+            Valid column cluster assignments
+        """
+        max_attempts = 1000
+        
+        for attempt in range(max_attempts):
+            key, subkey = jax.random.split(key)
+            
+            # Start with all columns in separate clusters if we have constraints
+            if self.column_constraints:
+                assignments = jnp.arange(self.n_columns)
+            else:
+                # Sample from CRP normally
+                assignments = jax.random.randint(subkey, (self.n_columns,), 0, self.n_columns)
+            
+            # Greedily merge clusters while respecting constraints
+            if self.column_constraints:
+                assignments = self._greedy_merge_with_constraints(subkey, assignments)
+            
+            # Validate final assignment
+            if self._validate_column_constraints(assignments):
+                return assignments
+                
+        # Fallback: all columns in separate clusters
+        return jnp.arange(self.n_columns)
+    
+    def _greedy_merge_with_constraints(self, key: jax.random.PRNGKey, 
+                                     assignments: jnp.ndarray) -> jnp.ndarray:
+        """
+        Greedily merge column clusters while respecting constraints
+        
+        Args:
+            key: Random key
+            assignments: Initial column assignments (all separate)
+            
+        Returns:
+            Merged assignments respecting constraints
+        """
+        assignments = assignments.copy()
+        n_merges = jax.random.randint(key, (), 0, self.n_columns // 2)
+        
+        for _ in range(n_merges):
+            key, subkey = jax.random.split(key)
+            
+            # Try to merge two random clusters
+            unique_clusters = jnp.unique(assignments)
+            if len(unique_clusters) <= 1:
+                break
+                
+            # Sample two different clusters to potentially merge
+            cluster_idx = jax.random.choice(subkey, len(unique_clusters), (2,), replace=False)
+            cluster_a, cluster_b = unique_clusters[cluster_idx]
+            
+            # Check if merging these clusters would violate constraints
+            cols_in_a = jnp.where(assignments == cluster_a)[0]
+            cols_in_b = jnp.where(assignments == cluster_b)[0]
+            
+            can_merge = True
+            for col_a in cols_in_a:
+                for col_b in cols_in_b:
+                    if (col_a, col_b) in self.column_constraints or (col_b, col_a) in self.column_constraints:
+                        can_merge = False
+                        break
+                if not can_merge:
+                    break
+            
+            # Merge if allowed
+            if can_merge:
+                assignments = jnp.where(assignments == cluster_b, cluster_a, assignments)
+        
+        return assignments
 
 
 class CrossCatInference:
@@ -215,7 +362,7 @@ class CrossCatInference:
         inference_fn = self.model.compile_crosscat(data)
         
         # Initialize parameters
-        self.model.initalize_parameters(key)
+        self.model.initialize_parameters(key)
         self.model.observe(data)
         
         samples = {
