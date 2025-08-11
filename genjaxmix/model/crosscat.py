@@ -15,10 +15,14 @@ from genjaxmix.model.dsl import (
 class CrossCatModel(Model):
     """CrossCat model for tabular data with mixed data types"""
     
+    # Class constants
+    DEFAULT_MAX_SAMPLING_ATTEMPTS = 1000
+    
     def __init__(self, n_rows: int, n_columns: int, 
                  column_types: List[str], 
                  crp_concentration: float = 1.0,
-                 column_constraints: List[Tuple[int, int]] = None):
+                 column_constraints: List[Tuple[int, int]] = None,
+                 max_sampling_attempts: int = None):
         """
         Initialize CrossCat model
         
@@ -28,6 +32,7 @@ class CrossCatModel(Model):
             column_types: List of column types ('continuous' or 'categorical')
             crp_concentration: Concentration parameter for CRP
             column_constraints: List of column pairs (i, j) that cannot be in same view
+            max_sampling_attempts: Maximum attempts for constraint-aware sampling (default: 1000)
         """
         super().__init__()
         
@@ -35,6 +40,7 @@ class CrossCatModel(Model):
         self.n_columns = n_columns
         self.column_types = column_types
         self.column_constraints = column_constraints or []
+        self.max_sampling_attempts = max_sampling_attempts or self.DEFAULT_MAX_SAMPLING_ATTEMPTS
         
         # Convert constraints to set of tuples for O(1) lookup
         self._constraint_set = set(self.column_constraints) if self.column_constraints else set()
@@ -271,7 +277,7 @@ class CrossCatModel(Model):
         Returns:
             Valid column cluster assignments
         """
-        max_attempts = 1000
+        max_attempts = self.max_sampling_attempts
         
         for attempt in range(max_attempts):
             key, subkey = jax.random.split(key)

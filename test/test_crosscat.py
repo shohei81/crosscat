@@ -259,6 +259,36 @@ class TestConstrainedColumnClustering:
         # Constraints should still be satisfied after merging
         assert model._validate_column_constraints(merged_assignment) == True
         assert merged_assignment[0] != merged_assignment[1]  # Constraint preserved
+        
+    def test_max_sampling_attempts_parameter(self):
+        """Test max_sampling_attempts parameter configuration"""
+        # Test with default value
+        model_default = CrossCatModel(
+            n_rows=50,
+            n_columns=3,
+            column_types=['continuous'] * 3
+        )
+        assert model_default.max_sampling_attempts == CrossCatModel.DEFAULT_MAX_SAMPLING_ATTEMPTS
+        assert model_default.max_sampling_attempts == 1000
+        
+        # Test with custom value
+        custom_attempts = 500
+        model_custom = CrossCatModel(
+            n_rows=50,
+            n_columns=3,
+            column_types=['continuous'] * 3,
+            max_sampling_attempts=custom_attempts
+        )
+        assert model_custom.max_sampling_attempts == custom_attempts
+        
+        # Test with None (should use default)
+        model_none = CrossCatModel(
+            n_rows=50,
+            n_columns=3,
+            column_types=['continuous'] * 3,
+            max_sampling_attempts=None
+        )
+        assert model_none.max_sampling_attempts == CrossCatModel.DEFAULT_MAX_SAMPLING_ATTEMPTS
 
 
 if __name__ == "__main__":
