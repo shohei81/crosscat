@@ -75,7 +75,7 @@ def run_crosscat_analysis():
     )
     
     # Initialize model parameters
-    model.initalize_parameters(model_key)
+    model.initialize_parameters(model_key)
     
     print("   ✅ Model initialized successfully")
     print(f"   - Continuous columns: {len(model.continuous_hyperpriors)}")
