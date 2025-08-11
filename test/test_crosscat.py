@@ -72,7 +72,7 @@ class TestCrossCatModel:
         )
         
         key = jax.random.PRNGKey(42)
-        model.initalize_parameters(key)
+        model.initialize_parameters(key)
         
         column_clusters = model.get_column_clusters()
         assert column_clusters.shape == (4,)
