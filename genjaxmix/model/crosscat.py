@@ -303,7 +303,7 @@ class CrossCatModel(Model):
         Returns:
             Merged assignments respecting constraints
         """
-        assignments = assignments.copy()
+        assignments = jnp.array(assignments)
         n_merges = jax.random.randint(key, (), 0, self.n_columns // 2)
         
         for _ in range(n_merges):
