@@ -1,5 +1,6 @@
 from jax import Array
 import jax
+import jax.numpy as jnp
 from plum import dispatch
 from abc import abstractmethod, ABC
 
@@ -20,6 +21,10 @@ class Node(ABC):
 
     def check_dimensions(self):
         inputs = self.parents()
+        # Skip dimension check for special nodes like CRP
+        if self.__class__.__name__ in ['ChineseRestaurantProcess', 'DirichletCategorical']:
+            return
+            
         for arg in inputs:
             if len(arg.shape) != 2:
                 raise ValueError("All parameters must be 2D arrays")
@@ -77,7 +82,23 @@ class Beta(Node):
 
 
 class Categorical(Node):
-    pass
+    def __init__(self, probs):
+        if is_constant(probs):
+            probs = wrap_constant(probs)
+            
+        self.probs = probs
+        self.shape = probs.shape[:-1]  # Remove last dimension (categories)
+        
+        super().__init__()
+    
+    def parents(self):
+        return [self.probs]
+    
+    def initialize(self, key):
+        return jax.random.categorical(key, self.probs.value)
+    
+    def sample(self, key, probs):
+        return jax.random.categorical(key, probs)
 
 
 class Constant(Node):
@@ -99,7 +120,23 @@ class Constant(Node):
 
 
 class Dirichlet(Node):
-    pass
+    def __init__(self, alpha):
+        if is_constant(alpha):
+            alpha = wrap_constant(alpha)
+            
+        self.alpha = alpha
+        self.shape = alpha.shape
+        
+        super().__init__()
+    
+    def parents(self):
+        return [self.alpha]
+    
+    def initialize(self, key):
+        return jax.random.dirichlet(key, self.alpha.value)
+    
+    def sample(self, key, alpha):
+        return jax.random.dirichlet(key, alpha)
 
 
 class Exponential(Node):
@@ -356,3 +393,102 @@ def wrap_constant(obj):
     if isinstance(obj, Constant):
         return obj
     return Constant(obj)
+
+
+class ChineseRestaurantProcess(Node):
+    """Chinese Restaurant Process for column clustering in CrossCat"""
+    
+    def __init__(self, concentration, n_columns):
+        if is_constant(concentration):
+            # Extract value if it's already a Constant, otherwise use directly
+            if isinstance(concentration, Constant):
+                conc_value = concentration.value
+            else:
+                conc_value = concentration
+                
+            # Ensure concentration is 2D for compatibility
+            if jnp.ndim(conc_value) == 0:
+                conc_value = jnp.array([[conc_value]])
+            elif jnp.ndim(conc_value) == 1:
+                conc_value = conc_value.reshape(1, -1)
+                
+            concentration = wrap_constant(conc_value)
+            
+        self.concentration = concentration
+        self.n_columns = n_columns
+        self.shape = [n_columns, 1]  # Make 2D compatible
+        
+        super().__init__()
+    
+    def parents(self):
+        return [self.concentration]
+    
+    def initialize(self, key):
+        """Initialize column assignments using CRP"""
+        assignments = jnp.zeros(self.n_columns, dtype=jnp.int32)
+        next_cluster_id = 0
+        
+        for i in range(1, self.n_columns):
+            key, subkey = jax.random.split(key)
+            
+            # Get unique clusters so far and their counts
+            unique_clusters = jnp.unique(assignments[:i])
+            n_clusters = len(unique_clusters)
+            
+            # Count customers at each table
+            cluster_counts = jnp.array([jnp.sum(assignments[:i] == c) for c in unique_clusters])
+            
+            # CRP probabilities: proportional to cluster size + concentration for new cluster  
+            concentration_scalar = jnp.asarray(self.concentration.value).item()
+            
+            # Probabilities for existing clusters + new cluster
+            existing_probs = cluster_counts.astype(float)
+            new_cluster_prob = concentration_scalar
+            
+            all_probs = jnp.concatenate([existing_probs, jnp.array([new_cluster_prob])])
+            all_probs = all_probs / jnp.sum(all_probs)
+            
+            # Sample assignment
+            choice = jax.random.categorical(subkey, jnp.log(all_probs))
+            
+            if choice < n_clusters:
+                # Assign to existing cluster
+                assignments = assignments.at[i].set(unique_clusters[choice])
+            else:
+                # Create new cluster with next available ID
+                next_cluster_id = n_clusters
+                assignments = assignments.at[i].set(next_cluster_id)
+            
+        return assignments
+    
+    def sample(self, key, concentration):
+        """Sample new column assignments"""
+        # Store current concentration and use it
+        old_concentration = self.concentration
+        self.concentration = wrap_constant(concentration)
+        result = self.initialize(key)
+        self.concentration = old_concentration
+        return result
+
+
+class DirichletCategorical(Node):
+    """Dirichlet-Categorical model for categorical data"""
+    
+    def __init__(self, alpha):
+        if is_constant(alpha):
+            alpha = wrap_constant(alpha)
+            
+        self.alpha = alpha
+        self.shape = alpha.shape[:-1]  # Remove categories dimension
+        
+        super().__init__()
+    
+    def parents(self):
+        return [self.alpha]
+    
+    def initialize(self, key):
+        """Initialize categorical probabilities from Dirichlet"""
+        return jax.random.dirichlet(key, self.alpha.value)
+    
+    def sample(self, key, alpha):
+        return jax.random.dirichlet(key, alpha)
