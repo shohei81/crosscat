@@ -566,7 +566,8 @@ class CrossCatModel(Model):
                     alpha_n = alpha0 + n/2
                     beta_n = beta0 + 0.5*n*sample_var + 0.5*sigma0*n*(sample_mean - mu0)**2/(sigma0 + n)
                     
-                    # Marginal likelihood (Student t distribution) - original correct formula
+                    # Compute the log marginal likelihood for a cluster under a Normal-InverseGamma prior,
+                    # resulting in a Student-t marginal likelihood (see e.g. Murphy, "Machine Learning: A Probabilistic Perspective", Eq. 4.202).
                     log_likelihood += float(-n/2 * jnp.log(2*jnp.pi) + 
                                           0.5*jnp.log(sigma0/(sigma0 + n)) +
                                           alpha0*jnp.log(beta0) - alpha_n*jnp.log(beta_n) +
