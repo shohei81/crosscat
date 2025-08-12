@@ -726,7 +726,7 @@ class CrossCatModel(Model):
                     obs_val = int(col_data[row_idx])
                     # Find count for observed value
                     obs_idx = jnp.where(unique_vals == obs_val)[0]
-                    count_obs = counts[obs_idx[0]] if len(obs_idx) > 0 else 0
+                    count_obs = counts[obs_idx[0]] if jnp.size(obs_idx) > 0 else 0
                     
                     total_count = jnp.sum(counts)
                     prob = (count_obs + alpha) / (total_count + alpha * len(unique_vals))
