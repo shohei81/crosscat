@@ -523,7 +523,7 @@ class CrossCatModel(Model):
             data: Observed data
             
         Returns:
-            Log likelihood
+            float: Log likelihood
         """
         col_name = f'column_{column_idx}'
         if col_name not in data:
